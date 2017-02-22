@@ -12,49 +12,71 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include <termios.h>   // using the termios.h library
 
+#define RX_BUF_SZ	8
+#define TX_BUF_SZ	8
 /**
  * @brief main entry point for the application
  * @return
  */
-int main(void) {
-	puts("Starting up UartBBB");
-	int file, count;
+int main(void)
+{
+    struct termios options;               //The termios structure is vital
+    int file, count, rx_index = 0;
+    unsigned char receive[RX_BUF_SZ];      //declare a buffer for receiving data
+    unsigned char transmit[TX_BUF_SZ] = "Hello BeagleBone!";		//buffer for transmit
+    char byte_read;
 
-   if ((file = open("/dev/ttyO4", O_RDWR | O_NOCTTY | O_NDELAY))<0){
-	  perror("UART: Failed to open the file.\n");
-	  return -1;
-   }
-   struct termios options;               //The termios structure is vital
-   tcgetattr(file, &options);            //Sets the parameters associated with file
+    puts("Opening up the UART");
+    //open and initialize UART-4, labeled ttyO4
+    if ((file = open("/dev/ttyO4", O_RDWR | O_NOCTTY | O_NDELAY))<0)
+    {
+	    perror("UART: Failed to open the file.\n");
+	    return EXIT_FAILURE;
+    }
 
-   // Set up the communications options:
-   //   9600 baud, 8-bit, enable receiver, no modem control lines
-   options.c_cflag = B9600 | CS8 | CREAD | CLOCAL;
-   options.c_iflag = IGNPAR | ICRNL;    //ignore partity errors, CR -> newline
-   tcflush(file, TCIFLUSH);             //discard file information not transmitted
-   tcsetattr(file, TCSANOW, &options);  //changes occur immmediately
+    tcgetattr(file, &options);            //Sets the parameters associated with file
 
-   unsigned char transmit[18] = "Hello BeagleBone!";  //the string to send
+    // Set up the communications options:
+    // 9600 baud, 8-bit, enable receiver, no modem control lines
+    options.c_cflag = B9600 | CS8 | CREAD | CLOCAL;
+    options.c_iflag = IGNPAR | ICRNL;    //ignore parity errors, CR -> newline
+    tcflush(file, TCIFLUSH);             //discard file information not transmitted
+    tcsetattr(file, TCSANOW, &options);  //changes occur immmediately
 
-   if ((count = write(file, &transmit,18))<0){        //send the string
-	  perror("Failed to write to the output\n");
-	  return -1;
-   }
+    usleep(1000);                  //wait a little bit
 
-   usleep(100000);                  //give the Host a chance to respond
+    while (1)
+    {
+	    if ((count = read(file, &byte_read, 1)) == 1)   //read a byte
+	    {
+	    	receive[rx_index] = byte_read;
+		    rx_index++;
+		    if(rx_index >= RX_BUF_SZ)	//if received an entire packet
+		    {	//process it
+		    	rx_index = 0;
+		    	memset(&transmit[0], 0, TX_BUF_SZ * sizeof(unsigned char));
+		    	if(receive[0] == 0x01)
+		    	{
+		    		transmit[0] = 0x01;
+		    	}
+		    	else if(receive[0] == 0x02)
+		    	{
+		    		transmit[0] = 0x02;
+		    	}
+		    	if ((count = write(file, &transmit,TX_BUF_SZ))<0)	//send the response
+		    	{   //if an error occurred when writing
+		    		perror("Failed to write to the output\n");
+		    		close(file);
+		    		return EXIT_FAILURE;
+		    	}
+		    	memset(&receive[0], 0, RX_BUF_SZ * sizeof(unsigned char));
+		    }
+	    }
+    }
 
-   unsigned char receive[100];      //declare a buffer for receiving data
-   if ((count = read(file, (void*)receive, 100))<0){   //receive the data
-	  perror("Failed to read from the input\n");
-	  return -1;
-   }
-   if (count==0) printf("There was no data available to read!\n");
-   else {
-	  printf("The following was read in [%d]: %s\n",count,receive);
-   }
-   close(file);
-
-	return EXIT_SUCCESS;
+    close(file);
+    return EXIT_SUCCESS;
 }

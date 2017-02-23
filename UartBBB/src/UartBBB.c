@@ -70,7 +70,7 @@ int main(void)
 
     while (1)
     {
-    	usleep(10);		//delay a little to keep from hogging resources
+    	usleep(15);		//delay a little to keep from hogging resources
 	    if ((count = read(file, &byte_read, 1)) == 1)   //read a byte
 	    {
 			memset(&transmit[0], 0, TX_BUF_SZ * sizeof(unsigned char));

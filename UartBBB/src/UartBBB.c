@@ -3,7 +3,7 @@
  Name        : UartBBB.c
  Author      : Chad Kidd
  Version     :
- Copyright   : Esterline 2016
+ Copyright   :
  Description : Simple Uart using UART4 on the beaglebone black
  ============================================================================
  */

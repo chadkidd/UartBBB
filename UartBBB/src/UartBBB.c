@@ -29,6 +29,7 @@
 #define TX_BUF_SZ		16
 
 static int ping(char *ipaddr);
+static int minicom_start_stop();
 
 /**
  *
@@ -41,6 +42,8 @@ int main(void)
     int status, file, count;
     char transmit[TX_BUF_SZ];		//buffer for transmit
     char byte_read;
+
+    minicom_start_stop();
 
     puts("Opening up the UART");
     //open and initialize UART-4, labeled ttyO4
@@ -106,7 +109,65 @@ int main(void)
     return EXIT_SUCCESS;
 }
 
+/**
+ * @brief Starts and stops minicom to get the UART working after system startup
+ * @param none
+ * @return 0 if success, else failure code
+ */
+static int minicom_start_stop()
+{
+	int i;
+	char *command = NULL;
+	char *s = malloc(sizeof(char) * 200);
+	FILE *fp;
 
+	int stat = 0;
+	asprintf (&command, "minicom -b 9600 -o -D /dev/ttyO4");		//launch minicom
+	fp = popen(command, "r");
+	if(fp == NULL)
+	{
+		perror("Failed to execute minicom command");
+		free(command);
+		free(s);
+		return EXIT_FAILURE;
+	}
+
+	for(i = 0; i < 10; i++)
+	{
+		usleep(1000);		//delay a little
+		fgets(s, sizeof(char)*200, fp);
+		printf("%s", s);
+		if(strstr(s, "Press CTRL-A") != 0)
+			break;
+	}
+
+	usleep(2000);		//delay a little
+	free(command);
+
+	//kill minicom
+	asprintf (&command, "killall -9 minicom");		//kill minicom
+	fp = popen(command, "r");
+	for(i = 0; i < 4; i++)
+	{
+		usleep(1000);		//delay a little
+		fgets(s, sizeof(char)*200, fp);
+		printf("%s", s);
+		if(strstr(s, "Killed") != 0)
+			break;
+	}
+	stat = pclose(fp);
+
+	free(command);
+	free(s);
+	usleep(2000);		//delay a little
+	return WEXITSTATUS(stat);		//return the status
+}
+
+/**
+ * @brief pings an IP address using the ping command
+ * @param ipaddress to ping
+ * @return 0 if success, else failure code
+ */
 static int ping(char *ipaddr)
 {
 	int i;

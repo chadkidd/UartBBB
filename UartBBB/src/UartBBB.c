@@ -49,11 +49,15 @@ int main(void)
 
     puts("Opening up the UART");
     //open and initialize UART-4, labeled ttyO4
-    if ((file = open("/dev/ttyO4", O_RDWR | O_NOCTTY | O_NDELAY))<0)
+    //open in nonblocking mode so we won't block waiting for carrier detect.
+    if ((file = open("/dev/ttyO4", O_RDWR | O_NOCTTY | O_NONBLOCK))<0)
     {
 	    perror("UART: Failed to open the file.\n");
 	    return EXIT_FAILURE;
     }
+
+    //now that serial port is open, we can turn off non-blocking behavior
+    //fcntl(file, F_SETFL, fcntl(file, F_GETFL) & ~O_NONBLOCK);
 
     tcgetattr(file, &options);            //Sets the parameters associated with file
 
@@ -66,6 +70,7 @@ int main(void)
 
     while (1)
     {
+    	usleep(10);		//delay a little to keep from hogging resources
 	    if ((count = read(file, &byte_read, 1)) == 1)   //read a byte
 	    {
 			memset(&transmit[0], 0, TX_BUF_SZ * sizeof(unsigned char));

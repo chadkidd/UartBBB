@@ -22,6 +22,7 @@
 #define IP_PING			"192.168.0.101"
 
 #define UART_CMD_VER	0x01
+#define UART_CMD_SHDN	0x02
 #define UART_CMD_PING	0x0B
 #define UART_RX_ACK		0xFB
 #define UART_RX_INVALID	0xFE
@@ -30,6 +31,7 @@
 
 static int ping(char *ipaddr);
 static int minicom_start_stop();
+static void system_shutdown();
 
 /**
  *
@@ -76,6 +78,12 @@ int main(void)
 				transmit[0] = UART_CMD_VER;
 				strncpy(&transmit[1], APP_VER, sizeof(APP_VER)-1);
 				count = write(file, &transmit[0], sizeof(APP_VER));	//send response
+			}
+			else if(byte_read == UART_CMD_SHDN)
+			{
+				transmit[0] = UART_RX_ACK;
+				count = write(file, &transmit[0], 1);	//send ack
+				system_shutdown();
 			}
 			else if(byte_read == UART_CMD_PING)
 			{
@@ -199,5 +207,24 @@ static int ping(char *ipaddr)
 	free(command);
 	free(s);
 	return WEXITSTATUS(stat);		//return the status of the ping command
+
+}
+
+/**
+ * @brief Shuts down the system
+ * @param none
+ * @return none
+ */
+static void system_shutdown()
+{
+	char *command = NULL;
+	FILE *fp;
+
+	asprintf (&command, "sudo systemctl poweroff");		//shut down the system
+	fp = popen(command, "r");
+	if(fp == NULL)
+		perror("Failed to execute shutdown command");
+
+	free(command);
 
 }
